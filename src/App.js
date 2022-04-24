@@ -49,6 +49,55 @@ function App() {
       const pose = await net.estimateSinglePose(video);
       console.log(pose);
 
+      const { keypoints } = pose;
+      const rightLegParts = keypoints
+        .filter((keypoint) => keypoint.part.includes("right"))
+        .filter(
+          (keypoint) =>
+            !keypoint.part.includes("Eye") &&
+            !keypoint.part.includes("Ear") &&
+            !keypoint.part.includes("Shoulder") &&
+            !keypoint.part.includes("Elbow") &&
+            !keypoint.part.includes("Wrist")
+        );
+
+      console.log({ rightLegParts });
+
+      if (rightLegParts.length === 3) {
+        const [rightHip, rightKnee, rightAnkle] = rightLegParts;
+        const { x: rightHipX, y: rightHipY } = rightHip.position;
+        const { x: rightKneeX, y: rightKneeY } = rightKnee.position;
+        const { x: rightAnkleX, y: rightAnkleY } = rightAnkle.position;
+
+        const hipToKnee = Math.sqrt(
+          Math.pow(rightHipX - rightKneeX, 2) +
+            Math.pow(rightHipY - rightKneeY, 2)
+        );
+
+        const kneeToAnkle = Math.sqrt(
+          Math.pow(rightKneeX - rightAnkleX, 2) +
+            Math.pow(rightKneeY - rightAnkleY, 2)
+        );
+
+        const ankleToHip = Math.sqrt(
+          Math.pow(rightAnkleX - rightHipX, 2) +
+            Math.pow(rightAnkleY - rightHipY, 2)
+        );
+
+        console.log({ hipToKnee, kneeToAnkle, ankleToHip });
+        const cosOfHipKneeAnkleAngle =
+          (Math.pow(hipToKnee, 2) +
+            Math.pow(kneeToAnkle, 2) -
+            Math.pow(ankleToHip, 2)) /
+          (2 * hipToKnee * kneeToAnkle);
+
+        const hipKneeAnkleAngle = radiansToDegrees(
+          Math.acos(cosOfHipKneeAnkleAngle)
+        );
+
+        console.log({ cosOfHipKneeAnkleAngle, hipKneeAnkleAngle });
+      }
+
       drawCanvas(pose, video, videoWidth, videoHeight, canvasRef);
     }
   };
@@ -100,5 +149,9 @@ function App() {
     </div>
   );
 }
+
+const radiansToDegrees = (radians) => {
+  return radians * (180 / Math.PI);
+};
 
 export default App;
