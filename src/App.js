@@ -9,12 +9,12 @@
 
 import React, { useRef } from "react";
 import "./App.css";
-import * as tf from "@tensorflow/tfjs";
 import * as posenet from "@tensorflow-models/posenet";
 import Webcam from "react-webcam";
 import { drawKeypoints, drawSkeleton } from "./utilities";
 
 function App() {
+  const angle = useRef();
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -47,7 +47,7 @@ function App() {
 
       // Make Detections
       const pose = await net.estimateSinglePose(video);
-      console.log(pose);
+      // console.log(pose);
 
       const { keypoints } = pose;
       const rightLegParts = keypoints
@@ -61,10 +61,14 @@ function App() {
             !keypoint.part.includes("Wrist")
         );
 
-      console.log({ rightLegParts });
+      // console.log({ rightLegParts });
 
-      if (rightLegParts.length === 3) {
+      const rightLegIsVisible = rightLegParts.every((bodyPart) => {
+        return bodyPart.score > 0.7;
+      });
+      if (rightLegIsVisible) {
         const [rightHip, rightKnee, rightAnkle] = rightLegParts;
+        console.log({ rightHip, rightKnee, rightAnkle });
         const { x: rightHipX, y: rightHipY } = rightHip.position;
         const { x: rightKneeX, y: rightKneeY } = rightKnee.position;
         const { x: rightAnkleX, y: rightAnkleY } = rightAnkle.position;
@@ -84,7 +88,7 @@ function App() {
             Math.pow(rightAnkleY - rightHipY, 2)
         );
 
-        console.log({ hipToKnee, kneeToAnkle, ankleToHip });
+        // console.log({ hipToKnee, kneeToAnkle, ankleToHip });
         const cosOfHipKneeAnkleAngle =
           (Math.pow(hipToKnee, 2) +
             Math.pow(kneeToAnkle, 2) -
@@ -95,7 +99,10 @@ function App() {
           Math.acos(cosOfHipKneeAnkleAngle)
         );
 
-        console.log({ cosOfHipKneeAnkleAngle, hipKneeAnkleAngle });
+        // console.log({ cosOfHipKneeAnkleAngle, hipKneeAnkleAngle });
+        angle.current = hipKneeAnkleAngle;
+      } else {
+        angle.current = undefined;
       }
 
       drawCanvas(pose, video, videoWidth, videoHeight, canvasRef);
@@ -108,6 +115,33 @@ function App() {
     canvas.current.height = videoHeight;
 
     drawKeypoints(pose["keypoints"], 0.6, ctx);
+    // todo -> add the angle value
+    if (typeof angle.current === "number") {
+      ctx.beginPath();
+      ctx.font = "80px serif";
+      const isAngleValid = angle.current >= 140 && angle.current <= 156;
+      const seatTooHigh = angle.current > 157;
+
+      const angleColor = isAngleValid ? "green" : "red";
+      ctx.fillStyle = angleColor;
+      ctx.fillText(
+        isAngleValid
+          ? "Идеално"
+          : seatTooHigh
+          ? "Свалете седалката"
+          : "Вдигнете седалката",
+        50,
+        90
+      );
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.font = "80px serif";
+      ctx.fillStyle = "red";
+      ctx.fillText("Дясния крак не е в обхват", 0, 90, 630);
+      ctx.fill();
+    }
+    // todo end
     drawSkeleton(pose["keypoints"], 0.7, ctx);
   };
 
